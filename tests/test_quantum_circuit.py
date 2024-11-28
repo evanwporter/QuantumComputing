@@ -34,6 +34,51 @@ def test_hadamard_then_x():
     expected_state = np.array([1 / np.sqrt(2), 1 / np.sqrt(2)], dtype=complex)
     assert np.allclose(circuit.state, expected_state), f"State mismatch: {circuit.state}"
 
+def test_pauli_y_gate():
+    circuit = QuantumCircuit(1)
+
+    circuit.y(0)
+    circuit.execute()
+
+    expected_state = np.array([0, 1j], dtype=complex)
+    assert np.allclose(circuit.state, expected_state), f"State mismatch: {circuit.state}"
+
+def test_pauli_z_gate():
+    circuit = QuantumCircuit(1)
+
+    circuit.z(0)
+    circuit.execute()
+
+    expected_state = np.array([1, 0], dtype=complex)
+    assert np.allclose(circuit.state, expected_state), f"State mismatch: {circuit.state}"
+
+def test_rotation_x_gate():
+    circuit = QuantumCircuit(1)
+
+    circuit.rx(np.pi, 0)
+    circuit.execute()
+
+    expected_state = np.array([0, -1j], dtype=complex)
+    assert np.allclose(circuit.state, expected_state), f"State mismatch: {circuit.state}"
+
+def test_rotation_y_gate():
+    circuit = QuantumCircuit(1)
+
+    circuit.ry(np.pi / 2, 0)
+    circuit.execute()
+
+    expected_state = np.array([1/np.sqrt(2), 1/np.sqrt(2)], dtype=complex)
+    assert np.allclose(circuit.state, expected_state), f"State mismatch: {circuit.state}"
+
+def test_rotation_z_gate():
+    circuit = QuantumCircuit(1)
+
+    circuit.rz(np.pi, 0)
+    circuit.execute()
+
+    expected_state = np.array([1, 0], dtype=complex) * np.exp(-1j * np.pi / 2)
+    assert np.allclose(circuit.state, expected_state), f"State mismatch: {circuit.state}"
+
 def test_cnot_gate():
     circuit = QuantumCircuit(2)
     circuit.x(0, layer=0)
