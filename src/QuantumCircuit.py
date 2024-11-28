@@ -75,6 +75,16 @@ class QuantumCircuit:
         X = np.array([[0, 1], [1, 0]])
         self.add_gate(X, target_qubits, layer=layer)
 
+    def y(self, target_qubits: Index, layer: int = -1):
+        """Pauli-Y gate"""
+        Y = np.array([[0, -1j], [1j, 0]])
+        self.add_gate(Y, target_qubits, layer=layer)
+
+    def z(self, target_qubits: Index, layer: int = -1):
+        """Pauli-Z gate"""
+        Z = np.array([[1, 0], [0, -1]])
+        self.add_gate(Z, target_qubits, layer=layer)
+
     def cx(self, control: int, target: int):
         """Control Not Gate"""
         # Unsure if this works!!!
@@ -94,6 +104,31 @@ class QuantumCircuit:
                 cnot_matrix[i, target_index] = 1
         
         self.add_layer(cnot_matrix, -1)
+
+    # Bloch Sphere Gates
+    def rx(self, theta: float, target_qubits: Index, layer: int = -1):
+        """Rotation around X-axis"""
+        RX = np.array([
+            [np.cos(theta / 2), -1j * np.sin(theta / 2)],
+            [-1j * np.sin(theta / 2), np.cos(theta / 2)]
+        ])
+        self.add_gate(RX, target_qubits, layer)
+
+    def ry(self, theta: float, target_qubits: Index, layer: int = -1):
+        """Rotation around Y-axis"""
+        RY = np.array([
+            [np.cos(theta / 2), -np.sin(theta / 2)],
+            [np.sin(theta / 2), np.cos(theta / 2)]
+        ])
+        self.add_gate(RY, target_qubits, layer)
+
+    def rz(self, theta: float, target_qubits: Index, layer: int = -1):
+        """Rotation around Z-axis"""
+        RZ = np.array([
+            [np.exp(-1j * theta / 2), 0],
+            [0, np.exp(1j * theta / 2)]
+        ])
+        self.add_gate(RZ, target_qubits, layer)
 
     def measure_single_qubit(self, state_vector: StateVector, qubit_index: int) -> list[int]:
         probabilities: list[int] = [0, 0]
@@ -116,6 +151,28 @@ class QuantumCircuit:
             probabilities[input_state_index] += abs(amplitude)**2
         
         return probabilities
+    
+    def measure(self, target_qubits: list[int] | None = None) -> dict[str, float]:
+        num_qubits = self.num_qubits
+        if target_qubits is None:
+            target_qubits = list(range(num_qubits))
+
+        probabilities: npt.NDArray[np.int64] = np.abs(self.state) ** 2
+        measurement_results: dict[str, float] = {}
+
+        for index, probability in enumerate(probabilities):
+            if probability > 1e-12:  # Ignore negligible probabilities
+                # Convert the index to a binary string representing the state
+                state_str = format(index, f'0{num_qubits}b')
+                # Extract only the bits corresponding to the target qubits
+                measured_state: str = ''.join(state_str[i] for i in target_qubits)
+                if measured_state in measurement_results:
+                    measurement_results[measured_state] += probability
+                else:
+                    measurement_results[measured_state] = probability
+
+        return measurement_results
+    
 
 if __name__ == "__main__":
     # Deutsch Problem
