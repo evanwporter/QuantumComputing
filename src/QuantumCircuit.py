@@ -84,26 +84,20 @@ class QuantumCircuit:
 
     def cx(self, control: int, target: int) -> Self:
         """Control Not Gate"""
-        # Unsure if this works!!!
-
-        if control == target:
-            raise ValueError("Control and target qubits must be different.")
-        
         size = 2**self.num_qubits
-        cnot_matrix = np.eye(size, dtype=complex)
-        
+        cx_matrix = np.eye(size, dtype=complex)
+
         for i in range(size):
-            binary = format(i, f'0{self.num_qubits}b')  # Binary representation
-            if binary[control] == '1':  # Control qubit is |1⟩
-                # Flip the target qubit
-                target_index = int(binary[:target] + str(1 - int(binary[target])) + binary[target+1:], 2)
-                cnot_matrix[i, i] = 0
-                cnot_matrix[i, target_index] = 1
-        
-        self.add_layer(cnot_matrix, -1)
+            if (i >> control) & 1 == 1:
+                target_state = i ^ (1 << target)
+                cx_matrix[i, i] = 0
+                cx_matrix[i, target_state] = 1
+
+        self.add_layer(cx_matrix, -1)
         return self
     
     def cz(self, control: int, target: int) -> Self:
+        """Control Z Gate"""
         size = 2**self.num_qubits
         cz_matrix = np.eye(size, dtype=complex)
 
