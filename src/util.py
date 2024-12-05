@@ -7,7 +7,6 @@ type GateMatrix = npt.NDArray[np.complex128]
 type GateMatrixArray = npt.NDArray[np.complex128]
 type Index = int | slice | list[int]
 
-
 def convert_index(index: Index) -> list[int]:
     if isinstance(index, int):
         return [index]

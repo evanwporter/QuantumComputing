@@ -9,7 +9,6 @@ class QuantumCircuit:
     state: StateVector
     state_history: list[StateVector]
     gate_queue: GateMatrixArray # 3D Array to hold expanded matrices for each layer
-
     _gate_queue: GateMatrixArray
 
     def __init__(self, num_qubits: int):
@@ -135,6 +134,17 @@ class QuantumCircuit:
         ])
         self.add_gate(RZ, target_qubits, layer)
         return self
+    
+    def to_gate(self) -> GateMatrix:
+        """Combine all gates in the circuit into a single gate."""
+
+        unitary = np.eye(2**self.num_qubits, dtype=complex)
+        
+        for layer in self._gate_queue:
+            unitary = layer @ unitary
+        
+        return unitary
+
 
     def measure_single_qubit(self, state_vector: StateVector, qubit_index: int) -> list[int]:
         probabilities: list[int] = [0, 0]
