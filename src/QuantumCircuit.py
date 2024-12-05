@@ -104,15 +104,13 @@ class QuantumCircuit:
         return self
     
     def cz(self, control: int, target: int) -> Self:
-        """Controlled-Z Gate"""
         size = 2**self.num_qubits
         cz_matrix = np.eye(size, dtype=complex)
 
         for i in range(size):
-            binary = format(i, f'0{self.num_qubits}b')
-            if binary[control] == '1' and binary[target] == '1':
+            if (i >> control) & 1 == 1 and (i >> target) & 1 == 1:
                 cz_matrix[i, i] *= -1
-        
+
         self.add_layer(cz_matrix, -1)
         return self
 
@@ -191,6 +189,16 @@ class QuantumCircuit:
         if self.num_qubits != 1:
             raise KeyError(f"Error num_qubits is greater than one. Block sphere is only able to display a single qubit.")
         plot_bloch_sphere(self.state_history[history])
+    
+    def _expand_single_qubit_gate(self, gate_matrix: GateMatrix, target_qubit: int) -> GateMatrix:
+        """Expands a single-qubit gate to the full state space."""
+        full_gate = np.eye(1, dtype=complex)  # Start with a scalar identity
+        for i in range(self.num_qubits):
+            if i == target_qubit:
+                full_gate = np.kron(full_gate, gate_matrix)
+            else:
+                full_gate = np.kron(full_gate, np.eye(2))
+        return full_gate
     
 
 if __name__ == "__main__":
