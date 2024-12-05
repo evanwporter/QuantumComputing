@@ -1,11 +1,7 @@
 import numpy as np
 import numpy.typing as npt 
-
-type StateVector = npt.NDArray[np.complex128]
-type GateMatrix = npt.NDArray[np.complex128] # Scalar if Num_Qubits is 0 
-type GateMatrixArray = npt.NDArray[np.complex128]
-type Index = int | slice | list[int]
-
+from plot_bloch_sphere import plot_bloch_sphere
+from util import *
 
 class QuantumCircuit:
     num_qubits: int
@@ -172,6 +168,11 @@ class QuantumCircuit:
                     measurement_results[measured_state] = probability
 
         return measurement_results
+
+    def bloch(self, history: int=-1):
+        if self.num_qubits != 1:
+            raise KeyError(f"Error num_qubits is greater than one. Block sphere is only able to display a single qubit.")
+        plot_bloch_sphere(self.state_history[history])
     
 
 if __name__ == "__main__":
