@@ -10,13 +10,15 @@ class QuantumCircuit:
     state_history: list[StateVector]
     gate_queue: GateMatrixArray # 3D Array to hold expanded matrices for each layer
 
+    _gate_queue: GateMatrixArray
+
     def __init__(self, num_qubits: int):
-        
         self.num_qubits = num_qubits
         self.state = np.zeros(2**num_qubits, dtype=complex)
         self.state[0] = 1
         self.state_history = [self.state.copy()]
-        self.gate_queue = np.empty((0, 2**num_qubits, 2**num_qubits), dtype=complex) # 3D array
+        self._gate_queue = np.empty((0, 2**num_qubits, 2**num_qubits), dtype=complex) # 3D array
+        self.gate_queue = self._gate_queue.copy()
 
     def _expand_gate(self, gate_matrix: GateMatrix, target_qubits: list[int]) -> GateMatrix:
         full_matrix: GateMatrix = gate_matrix
@@ -29,7 +31,7 @@ class QuantumCircuit:
         return full_matrix
 
     def _ensure_layer(self, layer: int):
-        current_layers: int = self.gate_queue.shape[0]
+        current_layers: int = self._gate_queue.shape[0]
         if layer >= current_layers:
 
             new_layers: int = layer - current_layers + 1
@@ -37,28 +39,22 @@ class QuantumCircuit:
 
             # Fill it with identity matrices
             identity_layers: GateMatrixArray = np.repeat(identity_layer[None, :, :], new_layers, axis=0)
-            self.gate_queue = np.vstack((self.gate_queue, identity_layers))
+            self._gate_queue = np.vstack((self._gate_queue, identity_layers))
 
     def add_gate(self, gate_matrix: GateMatrix, target_qubits: Index, layer: int):
-        normalized_target_qubits: list[int] = self._convert_index(target_qubits)
+        normalized_target_qubits: list[int] = convert_index(target_qubits)
         expanded_gate: GateMatrix = self._expand_gate(gate_matrix, normalized_target_qubits)        
         self.add_layer(expanded_gate, layer)
     
     def add_layer(self, gate_matrix: GateMatrix, layer: int):
-        if layer == -1: layer = len(self.gate_queue)
+        if layer == -1: layer = len(self._gate_queue)
         self._ensure_layer(layer)
-        self.gate_queue[layer] = gate_matrix
-
-    def _convert_index(self, index: Index) -> list[int]:
-        if isinstance(index, int):
-            return [index]
-        if isinstance(index, slice):
-            return list(range(index.start, index.stop, index.step))
-        else:
-            return index
+        self._gate_queue[layer] = gate_matrix
 
     def execute(self):
-        for layer in self.gate_queue:
+        self.gate_queue = self._gate_queue.copy()
+        self.state_history = [self.state.copy()] # Flush the history
+        for layer in self._gate_queue:
             self.state = layer @ self.state
             self.state_history.append(self.state.copy())
 
@@ -105,6 +101,19 @@ class QuantumCircuit:
                 cnot_matrix[i, target_index] = 1
         
         self.add_layer(cnot_matrix, -1)
+        return self
+    
+    def cz(self, control: int, target: int) -> Self:
+        """Controlled-Z Gate"""
+        size = 2**self.num_qubits
+        cz_matrix = np.eye(size, dtype=complex)
+
+        for i in range(size):
+            binary = format(i, f'0{self.num_qubits}b')
+            if binary[control] == '1' and binary[target] == '1':
+                cz_matrix[i, i] *= -1
+        
+        self.add_layer(cz_matrix, -1)
         return self
 
     # Bloch Sphere Gates
