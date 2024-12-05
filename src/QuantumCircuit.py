@@ -20,14 +20,15 @@ class QuantumCircuit:
         self.gate_queue = self._gate_queue.copy()
 
     def _expand_gate(self, gate_matrix: GateMatrix, target_qubits: list[int]) -> GateMatrix:
-        full_matrix: GateMatrix = gate_matrix
-        for i in range(1, self.num_qubits):
+        full_gate: GateMatrix = np.eye(1, dtype=complex)
+        
+        for i in range(self.num_qubits):
             if i in target_qubits:
-                # np.kron is effectively the tensor product
-                full_matrix = np.kron(full_matrix, gate_matrix)
+                full_gate = np.kron(gate_matrix, full_gate)
             else:
-                full_matrix = np.kron(full_matrix, np.eye(2))
-        return full_matrix
+                full_gate = np.kron(np.eye(2, dtype=complex), full_gate)
+        
+        return full_gate
 
     def _ensure_layer(self, layer: int):
         current_layers: int = self._gate_queue.shape[0]
