@@ -2,6 +2,7 @@ import numpy as np
 import numpy.typing as npt 
 from plot_bloch_sphere import plot_bloch_sphere
 from util import *
+from typing import Self
 
 class QuantumCircuit:
     num_qubits: int
@@ -61,27 +62,31 @@ class QuantumCircuit:
             self.state = layer @ self.state
             self.state_history.append(self.state.copy())
 
-    def h(self, target_qubits: Index, layer: int = -1):
+    def h(self, target_qubits: Index, layer: int = -1) -> Self:
         """Haadarmard gate"""
         H = (1 / np.sqrt(2)) * np.array([[1, 1], [1, -1]])
         self.add_gate(H, target_qubits, layer)
+        return self
 
-    def x(self, target_qubits: Index, layer: int = -1):
+    def x(self, target_qubits: Index, layer: int = -1) -> Self:
         """Pauli-X gate"""
         X = np.array([[0, 1], [1, 0]])
         self.add_gate(X, target_qubits, layer=layer)
+        return self
 
-    def y(self, target_qubits: Index, layer: int = -1):
+    def y(self, target_qubits: Index, layer: int = -1) -> Self:
         """Pauli-Y gate"""
         Y = np.array([[0, -1j], [1j, 0]])
         self.add_gate(Y, target_qubits, layer=layer)
+        return self
 
-    def z(self, target_qubits: Index, layer: int = -1):
+    def z(self, target_qubits: Index, layer: int = -1) -> Self:
         """Pauli-Z gate"""
         Z = np.array([[1, 0], [0, -1]])
         self.add_gate(Z, target_qubits, layer=layer)
+        return self
 
-    def cx(self, control: int, target: int):
+    def cx(self, control: int, target: int) -> Self:
         """Control Not Gate"""
         # Unsure if this works!!!
 
@@ -100,31 +105,35 @@ class QuantumCircuit:
                 cnot_matrix[i, target_index] = 1
         
         self.add_layer(cnot_matrix, -1)
+        return self
 
     # Bloch Sphere Gates
-    def rx(self, theta: float, target_qubits: Index, layer: int = -1):
+    def rx(self, theta: float, target_qubits: Index, layer: int = -1) -> Self:
         """Rotation around X-axis"""
         RX = np.array([
             [np.cos(theta / 2), -1j * np.sin(theta / 2)],
             [-1j * np.sin(theta / 2), np.cos(theta / 2)]
         ])
         self.add_gate(RX, target_qubits, layer)
+        return self
 
-    def ry(self, theta: float, target_qubits: Index, layer: int = -1):
+    def ry(self, theta: float, target_qubits: Index, layer: int = -1) -> Self:
         """Rotation around Y-axis"""
         RY = np.array([
             [np.cos(theta / 2), -np.sin(theta / 2)],
             [np.sin(theta / 2), np.cos(theta / 2)]
         ])
         self.add_gate(RY, target_qubits, layer)
+        return self
 
-    def rz(self, theta: float, target_qubits: Index, layer: int = -1):
+    def rz(self, theta: float, target_qubits: Index, layer: int = -1) -> Self:
         """Rotation around Z-axis"""
         RZ = np.array([
             [np.exp(-1j * theta / 2), 0],
             [0, np.exp(1j * theta / 2)]
         ])
         self.add_gate(RZ, target_qubits, layer)
+        return self
 
     def measure_single_qubit(self, state_vector: StateVector, qubit_index: int) -> list[int]:
         probabilities: list[int] = [0, 0]
