@@ -3,6 +3,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 from util import StateVector
 
+def plot_measurement_results(measurement_results: dict[str, int]):
+    states = list(measurement_results.keys())
+    probabilities = list(measurement_results.values())
+
+    plt.bar(states, probabilities, width=0.6, align="center", alpha=0.8)
+    plt.xlabel("States", fontsize=14)
+    plt.ylabel("Probabilities", fontsize=14)
+    plt.title("Measurement Results", fontsize=16)
+    
+    # https://stackoverflow.com/a/60951760
+    plt.grid(axis="y", linestyle="--", alpha=0.7)
+    plt.show()
+
 def plot_bloch_sphere(state_vector: StateVector):
     # This code was taken directly from the following link
     # https://stackoverflow.com/a/70445535
@@ -37,6 +50,7 @@ def plot_bloch_sphere(state_vector: StateVector):
     ax.plot(zeros, line, zeros, color='black', alpha=0.75)
     ax.plot(zeros, zeros, line, color='black', alpha=0.75)
 
+    
     # The Following Code Is My Own
     alpha, beta = state_vector[0], state_vector[1]
 

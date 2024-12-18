@@ -1,7 +1,8 @@
 import numpy as np
-import numpy.typing as npt 
-from plot_bloch_sphere import plot_bloch_sphere
-from util import *
+import numpy.typing as npt
+from plotting import plot_bloch_sphere, plot_measurement_results
+import util
+from util import StateVector, GateMatrix, GateMatrixArray, index_t
 from typing import Self
 
 class QuantumCircuit:
@@ -10,6 +11,7 @@ class QuantumCircuit:
     state_history: list[StateVector]
     gate_queue: GateMatrixArray # 3D Array to hold expanded matrices for each layer
     _gate_queue: GateMatrixArray
+    _executed: bool = False
 
     def __init__(self, num_qubits: int):
         self.num_qubits = num_qubits
@@ -29,6 +31,23 @@ class QuantumCircuit:
                 full_gate = np.kron(np.eye(2, dtype=complex), full_gate)
         
         return full_gate
+    
+    def _expand_partial_gate(self, gate_matrix: GateMatrix, target_qubits: list[int]) -> GateMatrix:
+        num_target_qubits = int(np.log2(gate_matrix.shape[0]))
+
+        if len(target_qubits) != num_target_qubits:
+            raise ValueError(f"Gate acts on {num_target_qubits} qubits, but {len(target_qubits)} were provided.")
+
+        full_gate = np.eye(1, dtype=complex)
+
+        for i in range(self.num_qubits):
+            if i in target_qubits:
+                full_gate = np.kron(full_gate, gate_matrix)
+            else:
+                full_gate = np.kron(full_gate, np.eye(2, dtype=complex))
+
+        return full_gate
+
 
     def _ensure_layer(self, layer: int):
         current_layers: int = self._gate_queue.shape[0]
@@ -41,42 +60,46 @@ class QuantumCircuit:
             identity_layers: GateMatrixArray = np.repeat(identity_layer[None, :, :], new_layers, axis=0)
             self._gate_queue = np.vstack((self._gate_queue, identity_layers))
 
-    def add_gate(self, gate_matrix: GateMatrix, target_qubits: Index, layer: int):
-        normalized_target_qubits: list[int] = convert_index(target_qubits)
-        expanded_gate: GateMatrix = self._expand_gate(gate_matrix, normalized_target_qubits)        
+    def add_gate(self, gate_matrix: GateMatrix, target_qubits: index_t, layer: int):
+        normalized_target_qubits: list[int] = util.convert_index(target_qubits)
+        expanded_gate: GateMatrix = self._expand_gate(gate_matrix, normalized_target_qubits)
         self.add_layer(expanded_gate, layer)
-    
+
     def add_layer(self, gate_matrix: GateMatrix, layer: int):
         if layer == -1: layer = len(self._gate_queue)
         self._ensure_layer(layer)
         self._gate_queue[layer] = gate_matrix
 
     def execute(self):
-        self.gate_queue = self._gate_queue.copy()
-        self.state_history = [self.state.copy()] # Flush the history
+        self._executed = True
+        self.clear()
         for layer in self._gate_queue:
             self.state = layer @ self.state
             self.state_history.append(self.state.copy())
 
-    def h(self, target_qubits: Index, layer: int = -1) -> Self:
+    def clear(self):
+        self.gate_queue = self._gate_queue.copy()
+        self.state_history = [self.state.copy()] # Flush the history
+
+    def h(self, target_qubits: index_t, layer: int = -1) -> Self:
         """Haadarmard gate"""
         H = (1 / np.sqrt(2)) * np.array([[1, 1], [1, -1]])
         self.add_gate(H, target_qubits, layer)
         return self
 
-    def x(self, target_qubits: Index, layer: int = -1) -> Self:
+    def x(self, target_qubits: index_t, layer: int = -1) -> Self:
         """Pauli-X gate"""
         X = np.array([[0, 1], [1, 0]])
         self.add_gate(X, target_qubits, layer=layer)
         return self
 
-    def y(self, target_qubits: Index, layer: int = -1) -> Self:
+    def y(self, target_qubits: index_t, layer: int = -1) -> Self:
         """Pauli-Y gate"""
         Y = np.array([[0, -1j], [1j, 0]])
         self.add_gate(Y, target_qubits, layer=layer)
         return self
 
-    def z(self, target_qubits: Index, layer: int = -1) -> Self:
+    def z(self, target_qubits: index_t, layer: int = -1) -> Self:
         """Pauli-Z gate"""
         Z = np.array([[1, 0], [0, -1]])
         self.add_gate(Z, target_qubits, layer=layer)
@@ -97,7 +120,11 @@ class QuantumCircuit:
         return self
     
     def cz(self, control: int, target: int) -> Self:
-        """Control Z Gate"""
+        """
+        Control Z Gate
+        
+        Applies Z gate to target when control is 1.
+        """
         size = 2**self.num_qubits
         cz_matrix = np.eye(size, dtype=complex)
 
@@ -109,7 +136,7 @@ class QuantumCircuit:
         return self
 
     # Bloch Sphere Gates
-    def rx(self, theta: float, target_qubits: Index, layer: int = -1) -> Self:
+    def rx(self, theta: float, target_qubits: index_t, layer: int = -1) -> Self:
         """Rotation around X-axis"""
         RX = np.array([
             [np.cos(theta / 2), -1j * np.sin(theta / 2)],
@@ -118,7 +145,7 @@ class QuantumCircuit:
         self.add_gate(RX, target_qubits, layer)
         return self
 
-    def ry(self, theta: float, target_qubits: Index, layer: int = -1) -> Self:
+    def ry(self, theta: float, target_qubits: index_t, layer: int = -1) -> Self:
         """Rotation around Y-axis"""
         RY = np.array([
             [np.cos(theta / 2), -np.sin(theta / 2)],
@@ -127,7 +154,7 @@ class QuantumCircuit:
         self.add_gate(RY, target_qubits, layer)
         return self
 
-    def rz(self, theta: float, target_qubits: Index, layer: int = -1) -> Self:
+    def rz(self, theta: float, target_qubits: index_t, layer: int = -1) -> Self:
         """Rotation around Z-axis"""
         RZ = np.array([
             [np.exp(-1j * theta / 2), 0],
@@ -144,85 +171,75 @@ class QuantumCircuit:
         for layer in self._gate_queue:
             unitary = layer @ unitary
         
+        self.clear()
         return unitary
-
-
-    def measure_single_qubit(self, state_vector: StateVector, qubit_index: int) -> list[int]:
-        probabilities: list[int] = [0, 0]
-        for i, amp in enumerate(state_vector):
-            if (i >> qubit_index) & 1 == 0:  # Qubit is in |0>
-                probabilities[0] += abs(amp)**2
-            else:  # Qubit is in |1>
-                probabilities[1] += abs(amp)**2
-        return probabilities
     
-    def measure_combined_probabilities(self, state_vector: StateVector, num_input_qubits: int) -> npt.NDArray[np.float64]:
-        num_states: int = 2**num_input_qubits
-        probabilities: npt.NDArray[np.float64] = np.zeros(num_states)
-        
-        index: int
-        amplitude: complex
-        for index, amplitude in enumerate(state_vector):
-            # Bitwise shift removes y qubit and group probabilities
-            input_state_index = index >> 1
-            probabilities[input_state_index] += abs(amplitude)**2
-        
-        return probabilities
-    
-    def measure(self, target_qubits: list[int] | None = None) -> dict[str, float]:
-        num_qubits = self.num_qubits
-        if target_qubits is None:
-            target_qubits = list(range(num_qubits))
-
-        probabilities: npt.NDArray[np.int64] = np.abs(self.state) ** 2
-        measurement_results: dict[str, float] = {}
-
-        for index, probability in enumerate(probabilities):
-            if probability > 1e-12:  # Ignore negligible probabilities
-                # Convert the index to a binary string representing the state
-                state_str = format(index, f'0{num_qubits}b')
-                # Extract only the bits corresponding to the target qubits
-                measured_state: str = ''.join(state_str[i] for i in target_qubits)
-                if measured_state in measurement_results:
-                    measurement_results[measured_state] += probability
-                else:
-                    measurement_results[measured_state] = probability
-
-        return measurement_results
-
     def bloch(self, history: int=-1):
         if self.num_qubits != 1:
             raise KeyError(f"Error num_qubits is greater than one. Block sphere is only able to display a single qubit.")
         plot_bloch_sphere(self.state_history[history])
     
-    def _expand_single_qubit_gate(self, gate_matrix: GateMatrix, target_qubit: int) -> GateMatrix:
-        """Expands a single-qubit gate to the full state space."""
-        full_gate = np.eye(1, dtype=complex)  # Start with a scalar identity
-        for i in range(self.num_qubits):
-            if i == target_qubit:
-                full_gate = np.kron(full_gate, gate_matrix)
-            else:
-                full_gate = np.kron(full_gate, np.eye(2))
-        return full_gate
-    
+    @property
+    def probabilities(self) -> npt.NDArray[np.int64]:
+        return np.real( # force conversion into a real number
+            np.square(np.abs(self.state))
+         )
 
-if __name__ == "__main__":
-    # Deutsch Problem
-    circuit = QuantumCircuit(2)
+    def toffoli(self) -> Self:
+        """
+        Implement a 2-control Toffoli gate.
+        """
+        # https://www.cs.sfu.ca/~meamy/Teaching/f22/cmpt981/Lecture%205.pdf
+        toff: GateMatrix = np.eye(8, dtype=complex)
 
-    circuit.x([1])
-    circuit.h([0, 1])
-    constantF = np.array([[1, 0, 0, 0],
-                        [0, 1, 0, 0],
-                        [0, 0, 1, 0],
-                        [0, 0, 0, 1]])
-    circuit.add_layer(constantF, -1)
-    circuit.h([0,1])
+        toff[[6, 7], [6, 7]] = 0
+        toff[[6, 7], [7, 6]] = 1
 
-    circuit.execute()
+        self.add_layer(toff, -1)
 
-    for i, state in enumerate(circuit.state_history):
-        print(f"Step {i}: {state}")
+        return self        
 
-    print("Final state vector:", circuit.state)
-    print("Measured prob", circuit.measure_single_qubit(circuit.state, 0))
+        
+    def measure(self, target_qubits: index_t | None = None, num_shots: int = 1024) -> dict[str, int]:
+        if not self._executed: self.execute()  # Get the latest state
+
+        if target_qubits is None:
+            target_qubits = list(range(self.num_qubits))
+        else:
+            target_qubits = util.convert_index(target_qubits)
+
+        # Generate all the possible states ie: |00>, |01>, etc...
+        basis_states = util.generate_states(self.num_qubits)
+
+        # If measuring a subset of total number bits then sum up the non measured bits.
+        # ie: if we have two qubits and we were trying to measure the prob of the first qubit
+        #     we could sum up |00> and |01>, and bit the result under |0>
+        marginal_basis = [
+            ''.join(state[q] for q in target_qubits) for state in basis_states
+        ]
+
+        marginal_probs: dict[str, float] = {}
+        for full_state, marginal_state in zip(basis_states, marginal_basis):
+            marginal_probs[marginal_state] = marginal_probs.get(marginal_state, 0) + self.probabilities[int(full_state, 2)]
+
+        total_prob = sum(marginal_probs.values())
+        marginal_probs = {state: prob / total_prob for state, prob in marginal_probs.items()}
+
+        # Simulate measurement outcomes
+        outcomes = np.random.choice(
+            list(marginal_probs.keys()),
+            size=num_shots,
+            p=list(marginal_probs.values())
+        )
+
+        # Count occurrences of each outcome
+        measurement_results = {state: 0 for state in marginal_probs}
+        for outcome in outcomes:
+            measurement_results[outcome] += 1
+
+        return measurement_results
+
+
+    def bar_chart(self, target_qubits: index_t | None):
+        measurement = {k: v for k, v in self.measure(target_qubits).items() if v != 0}
+        plot_measurement_results(measurement)

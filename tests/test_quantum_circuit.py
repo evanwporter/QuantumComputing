@@ -42,8 +42,8 @@ def test_pauli_x_gate():
 
 def test_hadamard_then_x():
     circuit = QuantumCircuit(1)
-    circuit.h(0, layer=0)
-    circuit.x(0, layer=1)
+    circuit.h(0)
+    circuit.x(0)
     circuit.execute()
 
     qc = QK(1)
@@ -110,7 +110,7 @@ def test_rotation_z_gate():
 
 def test_cnot_gate():
     circuit = QuantumCircuit(2)
-    circuit.x(0, layer=0)
+    circuit.x(0)
     circuit.cx(control=0, target=1)
     circuit.execute()
 
@@ -120,21 +120,7 @@ def test_cnot_gate():
     expected_state = run_qiskit_circuit(qc)
 
     assert np.allclose(circuit.state, expected_state), f"State mismatch: {circuit.state}"
-
-def test_mct_gate():
-    circuit = QuantumCircuit(3)
-    circuit.x([0, 1])
-    circuit.mct([0, 1], 2)
-    circuit.execute()
-
-    qc = QK(3)
-    qc.x(0)
-    qc.x(1)
-    qc.mcx([0, 1], 2)
-    expected_state = run_qiskit_circuit(qc)
-
-    assert np.allclose(circuit.state, expected_state), f"State mismatch: {circuit.state}"
-
+    
 def test_deutsch_constant_function():
     circuit = QuantumCircuit(2)
     circuit.x(1)
